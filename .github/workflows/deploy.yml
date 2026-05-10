@@ -68,7 +68,7 @@ jobs:
       - name: Copy deployment files to VM
         run: |
           scp -P ${{ secrets.SSH_PORT }} docker-compose-canary.yaml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/hw7_deploy/
-          scp -P ${{ secrets.SSH_PORT }} nginx/nginx.90.conf ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/hw7_deploy/nginx/
+          scp -P ${{ secrets.SSH_PORT }} nginx/nginx.10.conf ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/hw7_deploy/nginx/
           scp -P ${{ secrets.SSH_PORT }} nginx/nginx.50.conf ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/hw7_deploy/nginx/
           scp -P ${{ secrets.SSH_PORT }} nginx/nginx.100.conf ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/hw7_deploy/nginx/
           scp -P ${{ secrets.SSH_PORT }} nginx/nginx.rollback.conf ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/hw7_deploy/nginx/

@@ -8,6 +8,8 @@ services:
       MODEL_VERSION: "v0.9.9"
       MODEL_TYPE: "stable"
       MODEL_PATH: "models/stable_model.pkl"
+    ports:
+      - "5001:5000"
     restart: always
 
   canary:
@@ -17,6 +19,8 @@ services:
       MODEL_VERSION: "${MODEL_VERSION}"
       MODEL_TYPE: "canary"
       MODEL_PATH: "models/new_model.pkl"
+    ports:
+      - "5002:5000"  
     restart: always
 
   nginx:
@@ -25,7 +29,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx/nginx.90.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/nginx.10.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - stable
       - canary
