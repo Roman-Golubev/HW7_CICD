@@ -79,8 +79,8 @@ jobs:
             export MODEL_VERSION=${{ secrets.MODEL_VERSION }}
             cd ~/hw7_deploy
             docker login registry-gro.cr.cloud.ru -u "${{ secrets.REGISTRY_USERNAME }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
-            docker compose -f docker-compose-canary.yaml pull
-            docker compose -f docker-compose-canary.yaml up -d
+            docker-compose -f docker-compose-canary.yaml pull
+            docker-compose -f docker-compose-canary.yaml up -d
           EOF
 
       - name: Health check
