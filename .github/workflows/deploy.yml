@@ -1,0 +1,89 @@
+name: Model Deployment
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check required secrets
+        run: |
+          test -n "${{ secrets.SSH_HOST }}" && echo "SSH_HOST OK"
+          test -n "${{ secrets.SSH_USER }}" && echo "SSH_USER OK"
+          test -n "${{ secrets.SSH_PORT }}" && echo "SSH_PORT OK"
+          test -n "${{ secrets.SSH_PRIVATE_KEY }}" && echo "SSH_PRIVATE_KEY OK"
+          test -n "${{ secrets.REGISTRY_USERNAME }}" && echo "REGISTRY_USERNAME OK"
+          test -n "${{ secrets.REGISTRY_PASSWORD }}" && echo "REGISTRY_PASSWORD OK"
+          test -n "${{ secrets.MODEL_VERSION }}" && echo "MODEL_VERSION OK"
+
+      - name: Check CLOUD_TOKEN presence
+        env:
+          CLOUD_TOKEN: ${{ secrets.CLOUD_TOKEN }}
+        run: |
+          if [ -z "$CLOUD_TOKEN" ]; then
+            echo "Отсутствует CLOUD_TOKEN"
+            exit 1
+          fi
+          echo "CLOUD_TOKEN на месте"
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Log in to registry
+        run: |
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login registry-gro.cr.cloud.ru -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
+
+      - name: Build stable image
+        run: |
+          docker build -f Dockerfile.stable -t registry-gro.cr.cloud.ru/hw7/stable:${{ github.sha }} .
+          docker tag registry-gro.cr.cloud.ru/hw7/stable:${{ github.sha }} registry-gro.cr.cloud.ru/hw7/stable:latest
+
+      - name: Build canary image
+        run: |
+          docker build -f Dockerfile.canary -t registry-gro.cr.cloud.ru/hw7/canary:${{ github.sha }} .
+          docker tag registry-gro.cr.cloud.ru/hw7/canary:${{ github.sha }} registry-gro.cr.cloud.ru/hw7/canary:latest
+
+      - name: Push images
+        run: |
+          docker push registry-gro.cr.cloud.ru/hw7/stable:${{ github.sha }}
+          docker push registry-gro.cr.cloud.ru/hw7/stable:latest
+          docker push registry-gro.cr.cloud.ru/hw7/canary:${{ github.sha }}
+          docker push registry-gro.cr.cloud.ru/hw7/canary:latest
+
+      - name: Prepare deploy directory on VM
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "mkdir -p ~/hw7_deploy/nginx"
+
+      - name: Copy deployment files to VM
+        run: |
+          scp -P ${{ secrets.SSH_PORT }} docker-compose-canary.yaml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/hw7_deploy/
+          scp -P ${{ secrets.SSH_PORT }} nginx/nginx.90.conf ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/hw7_deploy/nginx/
+          scp -P ${{ secrets.SSH_PORT }} nginx/nginx.50.conf ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/hw7_deploy/nginx/
+          scp -P ${{ secrets.SSH_PORT }} nginx/nginx.100.conf ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/hw7_deploy/nginx/
+          scp -P ${{ secrets.SSH_PORT }} nginx/nginx.rollback.conf ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/hw7_deploy/nginx/
+
+      - name: Deploy on VM
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << EOF
+            export MODEL_VERSION=${{ secrets.MODEL_VERSION }}
+            cd ~/hw7_deploy
+            docker login registry-gro.cr.cloud.ru -u "${{ secrets.REGISTRY_USERNAME }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
+            docker compose -f docker-compose-canary.yaml pull
+            docker compose -f docker-compose-canary.yaml up -d
+          EOF
+
+      - name: Health check
+        run: |
+          sleep 20
+          curl --fail http://${{ secrets.SSH_HOST }}/health
