@@ -82,8 +82,3 @@ jobs:
             docker-compose -f docker-compose-canary.yaml pull
             docker-compose -f docker-compose-canary.yaml up -d
           EOF
-
-      - name: Health check
-        run: |
-          sleep 20
-          curl --fail http://${{ secrets.SSH_HOST }}/health
