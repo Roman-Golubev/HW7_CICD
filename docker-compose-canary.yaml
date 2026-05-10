@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  stable:
+    image: registry-gro.cr.cloud.ru/hw7/stable:latest
+    container_name: stable
+    environment:
+      MODEL_VERSION: "v0.9.9"
+      MODEL_TYPE: "stable"
+      MODEL_PATH: "models/stable_model.pkl"
+    restart: always
+
+  canary:
+    image: registry-gro.cr.cloud.ru/hw7/canary:latest
+    container_name: canary
+    environment:
+      MODEL_VERSION: "${MODEL_VERSION}"
+      MODEL_TYPE: "canary"
+      MODEL_PATH: "models/new_model.pkl"
+    restart: always
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx_canary
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.90.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - stable
+      - canary
+    restart: always
